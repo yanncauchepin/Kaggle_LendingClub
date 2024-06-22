@@ -12,7 +12,6 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 from mapie.classification import MapieClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from skopt import BayesSearchCV
-import matplotlib.pyplot as plt
 
 torch.manual_seed(1)
 torch.cuda.manual_seed_all(1)
@@ -466,11 +465,9 @@ def get_user_inputs():
 
 import json
 import os
-def get_user_inputs_from_json(file_path):
-    print(f"{os.getcwd()}")
-    if file_path is '':
+def get_user_inputs_from_json(file_path=None):
+    if file_path is None:
         file_path = '/app/data_test.json'
-        print("TEST JSON DATA")
     with open(file_path, 'r') as file:
         data = json.load(file)
         input_ = list()
