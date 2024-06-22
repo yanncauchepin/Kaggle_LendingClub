@@ -465,7 +465,10 @@ def get_user_inputs():
     return input_
 
 import json
-def get_user_inputs_from_json(file_path):
+def get_user_inputs_from_json(file_path=None):
+    if file_path is None:
+        file_path = '/app/data_test.json'
+        print("TEST JSON DATA")
     with open(file_path, 'r') as file:
         data = json.load(file)
         input_ = list()
