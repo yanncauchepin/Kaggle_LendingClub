@@ -1,11 +1,10 @@
 FROM python:latest
 
-WORKDIR /docker
+WORKDIR /app
 
-COPY main.py .
+COPY app/ .
 COPY requirements.txt .
-COPY lending_club_mlp_binary_classifier.pkl .
 
-# RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "./main.py"]

@@ -1,3 +1,5 @@
+import pandas as pd
+import numpy as np
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -413,6 +415,22 @@ map_output = {
     1: 'Charged Off'
     }
 
+features = ['loan_amnt',
+ 'funded_amnt',
+ 'funded_amnt_inv',
+ 'int_rate',
+ 'fico_range_high',
+ 'total_pymnt',
+ 'total_pymnt_inv',
+ 'total_rec_prncp',
+ 'total_rec_int',
+ 'recoveries',
+ 'last_pymnt_amnt',
+ 'last_fico_range_high',
+ 'last_fico_range_low',
+ 'mths_since_rcnt_il',
+ 'mo_sin_old_rev_tl_op',
+ 'last_credit_pull_d']
 
 def date_to_float(date):
     map_date = {
@@ -433,11 +451,62 @@ def date_to_float(date):
     return float(year)+float(map_date[month])
 
 
-def predict():
-    pass
+def get_user_inputs():
+    input_ = list()
+    for feature in features :
+        if feature in ["last_credit_pull_d", "last_pymnt_d"]:
+            value = input(f"{feature} - Format %Mon-YEAR% : ")
+            input_.append(float(date_to_float(value)))
+        elif feature in ["int_rate"]:
+            value = input(f"{feature} - Format float >= 1, without % : ")
+            input_.append(float(value))
+        else :
+            input_.append(float(input(f"{feature} :")))
+    return input_
 
+import json
+def get_user_inputs_from_json(file_path):
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+        input_ = list()
+        for feature in features:
+            if feature in ["last_credit_pull_d", "last_pymnt_d"]:
+                input_.append(float(date_to_float(data[feature])))
+            else:
+                input_.append(float(data[feature]))
+        return input_
+
+def predict(inputs):
+    prediction, _ = model.predict(inputs)
+    return map_output[prediction[0][0]]
 
 
 if __name__=='__main__':
-    date = date_to_float(input('Insert a date in the format: %MON-YEAR%: '))
-    print(date)
+    while True:
+        print("Menu:")
+        print("1. Predict loan status")
+        print("2. Exit")
+        choice = input("Enter your choice: ")
+        if choice == '1':
+            print("\n\tMenu:")
+            print("\t1. Data to inform manually")
+            print("\t2. Data from json file")
+            choice = input("\tEnter your choice: ")
+            if choice in ['1', '2']:
+                if choice == '1':
+                    inputs = get_user_inputs()
+                else :
+                    file_path = input('\tFill the file path of the json data: ')
+                    inputs = get_user_inputs_from_json(file_path)
+                inputs = np.array(inputs).reshape(1,-1)
+                result = predict(inputs)
+                print("\n=============================")
+                print(f"PREDICTION RESULT: {result}")
+                integrated_gradients = model.compute_integrated_gradients(inputs)
+                print(f"\nFeature relevance: {integrated_gradients}")
+                print("=============================\n")
+        elif choice == '2':
+            print("Exiting the application.")
+            break
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
