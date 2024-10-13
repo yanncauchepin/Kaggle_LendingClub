@@ -23,7 +23,7 @@ If you would like to use a json data, please ensure you provide data in the same
 ```sh
 docker run -it -v /root_path/data_folder:/app/data yanncauchepin/lendingclub:mlp_binary_classifier
 ```
-By choosing this second choice of predicting the ***loan_status*** from a data json file, you can get the output by passing into the request *data_folder/data.json* as input. Nevertheless, if you inform *datat_test.json*, or simply press *Enter*, it will run the inner test.
+By choosing this second choice of predicting the ***loan_status*** from a data json file, you can get the output by passing *data_folder/data.json* as input into the request. Nevertheless, if you inform *datat_test.json*, or simply press *Enter*, it will run the inner test.
 
 ## Best regards
 
