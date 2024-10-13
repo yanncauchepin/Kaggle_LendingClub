@@ -6,7 +6,7 @@ Associated **code** is also pusbilshed [here](https://www.kaggle.com/code/yannca
 
 ### Docker Image
 
-You can access to my trained MLP binary classifier with the docker [image](https://hub.docker.com/repository/docker/yanncauchepin/lendingclub/general).
+You can access to my trained MLP binary classifier with the **docker** [image](https://hub.docker.com/repository/docker/yanncauchepin/lendingclub/general).
 
 ```sh
 docker pull yanncauchepin/lending_club:mlp_binary_classifier
