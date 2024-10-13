@@ -1,6 +1,7 @@
-# [Lending Club](https://www.kaggle.com/code/yanncauchepin/lendingclub):
+# Lending Club
 
-Here is a repository related to the [Dataset Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
+Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
+Associated **code** is also pusbilshed [here](https://www.kaggle.com/code/yanncauchepin/lendingclub) 
 
 ### Docker Image
 
