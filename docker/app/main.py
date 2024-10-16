@@ -50,21 +50,21 @@ class MLP(nn.Module):
         layers.append(nn.Linear(self.hidden_layer_sizes[-1], self.output_size))
         self.model = nn.Sequential(*layers)
         self.sigmoid = nn.Sigmoid()
-
+        
 
     def forward_proba(self, X):
         output = self.model(X)
         output = self.sigmoid(output)
         return output.float()
-
-
+    
+    
     def forward(self, X):
         output = self.model(X)
         output = self.sigmoid(output)
         return output
 
 
-class MLPEstimatorSklearn():
+class MLPEstimator():
     def __init__(self, **params):
         self.input_size = params.get("input_size")
         self.output_size = params.get("output_size")
@@ -96,32 +96,38 @@ class MLPEstimatorSklearn():
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         else:
             raise ValueError(f"Unsupported optimizer: {self.optimizer}")
-
+            
     def next_batch(self, inputs, targets, batchSize):
-        inputs_tensor = torch.from_numpy(inputs).float()
-        targets_tensor = torch.from_numpy(targets).float().unsqueeze(1)
+        if isinstance(inputs, np.ndarray):
+            inputs_tensor = torch.from_numpy(inputs).float()
+        else:
+            inputs_tensor = inputs
+        if isinstance(targets, np.ndarray):
+            targets_tensor = torch.from_numpy(targets).float().unsqueeze(1)
+        else:
+            targets_tensor = targets
         for i in range(0, inputs_tensor.shape[0], batchSize):
             yield (inputs_tensor[i:i + batchSize], targets_tensor[i:i + batchSize])
 
     def augment_data(self, X_unlabeled, noise_level=0.1):
         noise = noise_level * torch.randn_like(X_unlabeled)
         return X_unlabeled + noise
-
-    def fit(self, X, y, X_unlabeled=None):
-        self.classes_ = np.unique(y)
-        running_losses_1 = list()
+            
+    def fit(self, X_train, y_train, X_valid, y_valid, X_unlabeled=None):
+        train_losses = []
         if self.early_stopping:
             best_loss = float('inf')
             count = 0
+            val_losses = []
         if self.verbose:
-            epoch_iterator_1 = tqdm(range(self.epochs), desc="Supervised training ; epochs", unit="epoch")
+            epoch_train = tqdm(range(self.epochs), desc="Supervised training ; epochs", unit="epoch")
         else:
-            epoch_iterator_1 = range(self.epochs)
-        for epoch in epoch_iterator_1:
+            epoch_train = range(self.epochs)
+        for _ in epoch_train:
             samples = 0
-            train_loss = 0.0
+            epoch_train_loss = 0.0
             self.model.train(True)
-            for i, (batchX, batchY) in enumerate(self.next_batch(X, y, self.batch_size)):
+            for i, (batchX, batchY) in enumerate(self.next_batch(X_train, y_train, self.batch_size)):
                 batchX = batchX.to(self.device)
                 batchY = batchY.to(self.device)
                 batchY.requires_grad = True
@@ -130,46 +136,55 @@ class MLPEstimatorSklearn():
                 loss = self.criterion(outputs, batchY)
                 loss.backward()
                 self.optimizer.step()
-                train_loss += loss.item()
+                epoch_train_loss += loss.item()
                 samples += batchY.size(0)
-            running_loss = train_loss / samples
-            running_losses_1.append(running_loss)
+            epoch_train_loss = epoch_train_loss / samples
+            train_losses.append(epoch_train_loss)
             if self.verbose:
-                epoch_iterator_1.set_postfix(train_loss=running_loss)
+                epoch_train.set_postfix(train_loss=epoch_train_loss)
             if self.early_stopping:
-                if running_loss < best_loss:
-                    best_loss = running_loss
+                batchX_valid = torch.from_numpy(X_valid).float().to(self.device)
+                batchY_valid = torch.from_numpy(y_valid).float().unsqueeze(1).to(self.device)
+                outputs_valid = self.model(batchX_valid)
+                loss_valid = self.criterion(outputs_valid, batchY_valid)
+                valid_loss = loss_valid.item()
+                val_losses.append(valid_loss)
+                if self.verbose:
+                    epoch_train.set_postfix(valid_loss=valid_loss)
+                if valid_loss < best_loss:
+                    best_loss = valid_loss
                     count = 0
                 else:
                     count += 1
                 if count >= self.patience:
                     break
         if self.verbose:
-            epoch_iterator_1.close()
-        self.running_losses_1 = [loss for loss in running_losses_1 if loss <= best_loss]
+            epoch_train.close()
         if X_unlabeled is not None:
-            best_loss = float('inf')
-            running_losses_2 = list()
-            X_unlabeled = torch.from_numpy(X_unlabeled).float()
-            augmented_X_unlabeled = self.augment_data(X_unlabeled)
+            train_losses_unlabeled = list()
+            if self.early_stopping:
+                best_loss_unlabeled = float('inf')
+                count_unlabeled = 0
+                val_losses_unlabeled = []
+            X_unlabeled = torch.from_numpy(X_unlabeled).float().to(self.device)
+            augmented_X_unlabeled = self.augment_data(X_unlabeled).to(self.device)
             self.model.eval()
             with torch.no_grad():
-                pseudo_labels = self.model(X_unlabeled)
-                pseudo_labels = (pseudo_labels > 0.5).float().squeeze()
-
-            X_combined = torch.cat((torch.from_numpy(X).float(), augmented_X_unlabeled.cpu()), 0).to(self.device)
-            y_combined = torch.cat((torch.from_numpy(y).float().squeeze(), pseudo_labels), 0).to(self.device)
+                pseudo_labels = self.model(X_unlabeled).to(self.device)
+                pseudo_labels = (pseudo_labels > 0.5).float().to(self.device)
+            
+            X_combined = torch.cat((torch.from_numpy(X_train).float().to(self.device), augmented_X_unlabeled), 0).to(self.device)
+            y_combined = torch.cat((torch.from_numpy(y_train).float().unsqueeze(1).to(self.device), pseudo_labels), 0).to(self.device)
 
             if self.verbose:
-                epoch_iterator_2 = tqdm(range(self.epochs), desc="Semi-supervised training ; epochs", unit="epoch")
+                epoch_train_unlabeled = tqdm(range(self.epochs), desc="Semi-supervised training ; epochs", unit="epoch")
             else:
-                epoch_iterator_2 = range(self.epochs)
-            for epoch in epoch_iterator_2:
+                epoch_train_unlabeled = range(self.epochs)
+            for _ in epoch_train_unlabeled:
                 samples = 0
-                train_loss = 0.0
+                epoch_train_loss = 0.0
                 self.model.train(True)
-                dataset = TensorDataset(X_combined, y_combined)
-                for i, (batchX, batchY) in enumerate(self.next_batch(X, y, self.batch_size)):
+                for i, (batchX, batchY) in enumerate(self.next_batch(X_combined, y_combined, self.batch_size)):
                     batchX = batchX.to(self.device)
                     batchY = batchY.to(self.device)
                     batchY.requires_grad = True
@@ -178,30 +193,35 @@ class MLPEstimatorSklearn():
                     loss = self.criterion(outputs, batchY)
                     loss.backward()
                     self.optimizer.step()
-                    train_loss += loss.item()
+                    epoch_train_loss += loss.item()
                     samples += batchY.size(0)
-                running_loss = train_loss / samples
-                running_losses_2.append(running_loss)
+                epoch_train_loss = epoch_train_loss / samples
+                train_losses_unlabeled.append(epoch_train_loss)
                 if self.verbose:
-                    epoch_iterator_2.set_postfix(train_loss=running_loss)
+                    epoch_train_unlabeled.set_postfix(train_loss=epoch_train_loss)
                 if self.early_stopping:
-                    if running_loss < best_loss:
-                        best_loss = running_loss
-                        count = 0
+                    outputs_valid = self.model(batchX_valid)
+                    loss_valid_unlabeled = self.criterion(outputs_valid, batchY_valid)
+                    valid_loss = loss_valid_unlabeled.item()
+                    val_losses_unlabeled.append(valid_loss)
+                    if self.verbose:
+                        epoch_train_unlabeled.set_postfix(valid_loss=valid_loss)
+                    if valid_loss < best_loss_unlabeled:
+                        best_loss_unlabeled = valid_loss
+                        count_unlabeled = 0
                     else:
-                        count += 1
-                    if count >= self.patience:
+                        count_unlabeled += 1
+                    if count_unlabeled >= self.patience:
                         break
             if self.verbose:
-                epoch_iterator_2.close()
-            self.running_losses_2 = [loss for loss in running_losses_2 if loss <= best_loss]
+                epoch_train_unlabeled.close()
         return self
 
     def predict(self, X):
         self.model.eval()
         X = torch.from_numpy(X).float().to(self.device)
         y_pred = self.model.forward(X)
-        if self.device == "cpu":
+        if self.device == "cuda":
             y_pred = y_pred.cpu().detach().numpy()
         else:
             y_pred = y_pred.detach().numpy()
@@ -218,7 +238,7 @@ class MLPEstimatorSklearn():
         y_proba = y_proba.squeeze().astype(np.float32)
         return np.column_stack((1 - y_proba, y_proba))
 
-    def get_params(self, deep=True):
+    def get_params(self):
         params = {
             "input_size": self.input_size,
             "output_size": self.output_size,
@@ -236,60 +256,49 @@ class MLPEstimatorSklearn():
             "verbose": self.verbose
         }
         return params
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        return self
-
-    def get_mlp(self):
-        return self.model
-
+    
 class MLPBinaryClassifier():
     def __init__(self, X, y, split_test, X_unlabeled=None, **params):
-        self.model = MLPEstimatorSklearn(**params)
+        self.model = MLPEstimator(**params)
         self.X = X
         self.X_unlabeled = X_unlabeled
         self.y = y
-
+        
         self.y = MLPBinaryClassifier.float_to_class(self.y).ravel()
-
+        
         self.split_test = split_test
         self.split_data()
-
-        self.standardize(self.X_train_cal)
+        
+        self.standardize(self.X_train_valid)
         self.X_train_standard = self.standardize_X(self.X_train)
-        self.X_cal_standard = self.standardize_X(self.X_cal)
+        self.X_valid_standard = self.standardize_X(self.X_valid)
         if isinstance(self.X_unlabeled, np.ndarray):
             self.X_unlabeled_standard = self.standardize_X(self.X_unlabeled)
         else :
             self.X_unlabeled_standard = None
         self.y_train_standard = self.y_train
-        self.y_cal_standard = self.y_cal.reshape(-1,1)
-
+        self.y_valid_standard = self.y_valid
 
     @staticmethod
     def float_to_class(y):
         threshold = 0.5
         return (y >= threshold).astype(int)
-
+    
     def split_data(self):
-        self.X_train_cal, self.X_test, self.y_train_cal, self.y_test = train_test_split(
+        self.X_train_valid, self.X_test, self.y_train_valid, self.y_test = train_test_split(
             self.X, self.y, test_size=self.split_test, shuffle=True, random_state=1, stratify=self.y)
-        self.X_train, self.X_cal, self.y_train, self.y_cal = train_test_split(
-            self.X_train_cal, self.y_train_cal, test_size=0.25, shuffle=True, random_state=1, stratify=self.y_train_cal)
+        self.X_train, self.X_valid, self.y_train, self.y_valid = train_test_split(
+            self.X_train_valid, self.y_train_valid, test_size=0.1, shuffle=True, random_state=1, stratify=self.y_train_valid)
+    
 
     def standardize(self, X):
         self.scaler_X_train = StandardScaler()
-        self.scaler_X_train.fit(X)
+        self.scaler_X_train.fit(X)         
 
 
     def standardize_X(self, X):
         X_new = self.scaler_X_train.transform(X)
         return X_new
-
-
 
     def bayes_search(self, param_bayes, n_iter, n_points=1, cv=5, scoring='accuracy',
                  verbose=3, n_jobs=1) :
@@ -318,14 +327,12 @@ class MLPBinaryClassifier():
         return results_df
 
     def fit(self, method="lac"):
-        self.model.fit(self.X_train_standard, self.y_train_standard, self.X_unlabeled_standard)
-        self.model_mapie = MapieClassifier(estimator=self.model, cv="prefit", method=method)
-        self.model_mapie.fit(self.X_cal_standard, self.y_cal_standard)
+        self.model.fit(self.X_train_standard, self.y_train_standard, self.X_valid_standard, self.y_valid_standard, self.X_unlabeled_standard)
 
-    def predict(self, X, alpha=0.05):
+    def predict(self, X):
         X_standard = self.standardize_X(X)
-        y_pred, y_ps = self.model_mapie.predict(X_standard, alpha=alpha)
-        return y_pred, y_ps
+        y_pred = self.model.predict(X_standard)
+        return y_pred
 
     @staticmethod
     def compute_metrics(metric, y_true, y_pred):
@@ -346,9 +353,9 @@ class MLPBinaryClassifier():
 
 
     def model_performance(self, metric='all'):
-        y_pred_train, _ = self.predict(self.X_train)
+        y_pred_train = self.predict(self.X_train)
         scores_train = MLPBinaryClassifier.compute_metrics(metric, self.y_train, y_pred_train)
-        y_pred_test, _ = self.predict(self.X_test)
+        y_pred_test = self.predict(self.X_test)
         scores_test = MLPBinaryClassifier.compute_metrics(metric, self.y_test, y_pred_test)
         data = {}
         for key, value in scores_train.items():
@@ -360,7 +367,7 @@ class MLPBinaryClassifier():
         return df_scores
 
     def model_performance_test(self, X_test, y_test, metric='all'):
-        y_pred_test, _ = self.predict(X_test)
+        y_pred_test = self.predict(X_test)
         scores_test = MLPBinaryClassifier.compute_metrics(metric, y_test, y_pred_test)
         data = {}
         for key, value in scores_test.items():
@@ -370,7 +377,7 @@ class MLPBinaryClassifier():
         return df_scores
 
     def receiver_operating_characteristics(self):
-        y_pred_test, _ = self.predict(self.X_test)
+        y_pred_test = self.predict(self.X_test)
         fpr, tpr, thresholds = metrics.roc_curve(self.y_test, y_pred_test)
         plt.plot(fpr, tpr)
         plt.title("Receiver Operating Characteristics")
@@ -380,11 +387,11 @@ class MLPBinaryClassifier():
 
     def compute_integrated_gradients(self, X, baseline=None, steps=50):
         def preprocess_input(X):
-            return torch.tensor(X, dtype=torch.float32)
+            return torch.tensor(X, dtype=torch.float32).to(self.model.device)
         input_tensor = preprocess_input(X)
         if baseline is None:
             baseline = torch.zeros_like(input_tensor)
-        integrated_gradients = IntegratedGradients(self.model.get_mlp())
+        integrated_gradients = IntegratedGradients(self.model.model)
         attributions = integrated_gradients.attribute(input_tensor, baseline, target=0, n_steps=steps)
         attributions_df = pd.DataFrame(attributions.cpu().detach().numpy(), columns=features)
         avg_attributions = attributions_df.mean(axis=0)
@@ -429,7 +436,8 @@ features = ['loan_amnt',
  'last_fico_range_low',
  'mths_since_rcnt_il',
  'mo_sin_old_rev_tl_op',
- 'last_credit_pull_d']
+ 'last_credit_pull_d',
+ 'last_pymnt_d']
 
 def date_to_float(date):
     map_date = {

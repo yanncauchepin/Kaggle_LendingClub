@@ -2,7 +2,7 @@
 
 Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
 
-Associated **code** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/lendingclub). 
+Associated **noteboook** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/lendingclub). 
 
 ### Docker Image
 
@@ -25,6 +25,6 @@ docker run -it -v /root_path/data_folder:/app/data yanncauchepin/lendingclub:mlp
 ```
 By choosing this second choice of predicting the ***loan_status*** from a data json file, you can get the output by passing *data_folder/data.json* as input into the request. Nevertheless, if you inform *datat_test.json*, or simply press *Enter*, it will run the inner test.
 
-## Best regards
+---
 
 ![](featured_image.jpg)
