@@ -9,9 +9,8 @@ from captum.attr import IntegratedGradients
 import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
-from mapie.classification import MapieClassifier
-from sklearn.calibration import CalibratedClassifierCV
 from skopt import BayesSearchCV
+import matplotlib.pyplot as plt
 
 torch.manual_seed(1)
 torch.cuda.manual_seed_all(1)
@@ -80,7 +79,7 @@ class MLPEstimator():
         self.epochs = params.get("epochs", 200)
         self.patience = params.get("patience", 10)
         self.verbose = params.get("verbose", True)
-        self.classes_ = classes_
+        self.classes_ = 2
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = MLP(self.input_size, self.output_size, self.hidden_layer_sizes, self.activation_name, self.p_dropout).to(self.device)
@@ -326,7 +325,7 @@ class MLPBinaryClassifier():
         print(f'Best hyperparameters randomized search : {randomized_search.best_params_}')
         return results_df
 
-    def fit(self, method="lac"):
+    def fit(self):
         self.model.fit(self.X_train_standard, self.y_train_standard, self.X_valid_standard, self.y_valid_standard, self.X_unlabeled_standard)
 
     def predict(self, X):
