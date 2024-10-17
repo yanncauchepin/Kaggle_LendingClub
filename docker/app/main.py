@@ -411,9 +411,8 @@ class MLPBinaryClassifier():
         return sorted_attributions
 
 
-import pickle
-with open('lending_club_mlp_binary_classifier.pkl', 'rb') as f:
-    model = pickle.load(f)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model = torch.load('lending_club_mlp_binary_classifier.pt', map_location=torch.device(device))
 
 map_output = {
     0: 'Fully Paid',
@@ -486,7 +485,7 @@ def get_user_inputs_from_json(file_path=" "):
         return input_
 
 def predict(inputs):
-    prediction, _ = model.predict(inputs)
+    prediction = model.predict(inputs)
     return map_output[prediction[0][0]]
 
 

@@ -14,5 +14,6 @@
   "last_fico_range_low": 735.0,
   "mths_since_rcnt_il": 0.0,
   "mo_sin_old_rev_tl_op": 0.0,
-  "last_credit_pull_d": "Dec-2016"
+  "last_credit_pull_d": "Dec-2016",
+  "last_pymnt_d": "Jan-2018"
 }
