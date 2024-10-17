@@ -515,7 +515,7 @@ if __name__=='__main__':
                 print(f"\nFeature relevance: {integrated_gradients}")
                 print("=============================\n")
         elif choice == '2':
-            print("Exiting the application.")
+            print("Exiting the app")
             break
         else:
             print("Invalid choice. Please enter 1 or 2.")
