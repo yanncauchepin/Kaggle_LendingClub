@@ -2,7 +2,7 @@
 
 Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
 
-Associated **noteboook** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/semi-supervised-learning-mlp-binary-classifier). 
+Associated **notebook** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/semi-supervised-learning-mlp-binary-classifier). 
 
 ### Docker Image
 
