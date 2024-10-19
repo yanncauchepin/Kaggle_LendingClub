@@ -2,11 +2,11 @@
 
 Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
 
-Associated **notebook** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/semi-supervised-learning-mlp-binary-classifier). 
+Associated **notebook** is also pusblished [here](https://www.kaggle.com/code/yanncauchepin/lending-club-semi-supervised-mlp-binary-classifier/notebook). 
 
 ### Docker Image
 
-You can access to my trained MLP binary classifier with the **docker** [image](https://hub.docker.com/repository/docker/yanncauchepin/kaggle_lendingclub/general).
+You can access to my trained MLP binary classifier with the **docker** [image](https://hub.docker.com/repository/docker/yanncauchepin/kaggle_lendingclub_mlp_binary_classifier/general).
 
 ```sh
 docker pull yanncauchepin/lending_club:mlp_binary_classifier
