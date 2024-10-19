@@ -81,7 +81,7 @@ class MLPEstimator():
         self.verbose = params.get("verbose", True)
         self.classes_ = 2
 
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device =  'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = MLP(self.input_size, self.output_size, self.hidden_layer_sizes, self.activation_name, self.p_dropout).to(self.device)
 
         if self.loss == "binary_cross_entropy":
@@ -216,9 +216,10 @@ class MLPEstimator():
                 epoch_train_unlabeled.close()
         return self
 
-    def predict(self, X):
+    def forward(self, X):
         self.model.eval()
         X = torch.from_numpy(X).float().to(self.device)
+        self.model.to(self.device)
         y_pred = self.model.forward(X)
         if self.device == "cuda":
             y_pred = y_pred.cpu().detach().numpy()
@@ -226,9 +227,10 @@ class MLPEstimator():
             y_pred = y_pred.detach().numpy()
         return (y_pred > 0.5).astype(int)
 
-    def predict_proba(self, X):
+    def forward_proba(self, X):
         self.model.eval()
         X = torch.from_numpy(X).float().to(self.device)
+        self.model.to(self.device)
         y_proba = self.model.forward_proba(X)
         if self.device == "cpu":
             y_proba = y_proba.cpu().detach().numpy().astype(float)
@@ -256,8 +258,9 @@ class MLPEstimator():
         }
         return params
     
-class MLPBinaryClassifier():
+class MLPBinaryClassifier(nn.Module):
     def __init__(self, X, y, split_test, X_unlabeled=None, **params):
+        super(MLPBinaryClassifier, self).__init__()
         self.model = MLPEstimator(**params)
         self.X = X
         self.X_unlabeled = X_unlabeled
@@ -328,9 +331,14 @@ class MLPBinaryClassifier():
     def fit(self):
         self.model.fit(self.X_train_standard, self.y_train_standard, self.X_valid_standard, self.y_valid_standard, self.X_unlabeled_standard)
 
-    def predict(self, X):
+    def forward(self, X):
         X_standard = self.standardize_X(X)
-        y_pred = self.model.predict(X_standard)
+        y_pred = self.model.forward(X_standard)
+        return y_pred
+    
+    def forward_proba(self, X):
+        X_standard = self.standardize_X(X)
+        y_pred = self.model.forward_proba(X_standard)
         return y_pred
 
     @staticmethod
@@ -352,9 +360,9 @@ class MLPBinaryClassifier():
 
 
     def model_performance(self, metric='all'):
-        y_pred_train = self.predict(self.X_train)
+        y_pred_train = self.forward(self.X_train)
         scores_train = MLPBinaryClassifier.compute_metrics(metric, self.y_train, y_pred_train)
-        y_pred_test = self.predict(self.X_test)
+        y_pred_test = self.forward(self.X_test)
         scores_test = MLPBinaryClassifier.compute_metrics(metric, self.y_test, y_pred_test)
         data = {}
         for key, value in scores_train.items():
@@ -366,7 +374,7 @@ class MLPBinaryClassifier():
         return df_scores
 
     def model_performance_test(self, X_test, y_test, metric='all'):
-        y_pred_test = self.predict(X_test)
+        y_pred_test = self.forward(X_test)
         scores_test = MLPBinaryClassifier.compute_metrics(metric, y_test, y_pred_test)
         data = {}
         for key, value in scores_test.items():
@@ -376,7 +384,7 @@ class MLPBinaryClassifier():
         return df_scores
 
     def receiver_operating_characteristics(self):
-        y_pred_test = self.predict(self.X_test)
+        y_pred_test = self.forward(self.X_test)
         fpr, tpr, thresholds = metrics.roc_curve(self.y_test, y_pred_test)
         plt.plot(fpr, tpr)
         plt.title("Receiver Operating Characteristics")
@@ -389,10 +397,13 @@ class MLPBinaryClassifier():
             return torch.tensor(X, dtype=torch.float32).to(self.model.device)
         input_tensor = preprocess_input(X)
         if baseline is None:
-            baseline = torch.zeros_like(input_tensor)
+            baseline = torch.zeros_like(input_tensor).to(self.model.device)
+        self.model.model.to(self.model.device)
         integrated_gradients = IntegratedGradients(self.model.model)
         attributions = integrated_gradients.attribute(input_tensor, baseline, target=0, n_steps=steps)
-        attributions_df = pd.DataFrame(attributions.cpu().detach().numpy(), columns=features)
+        if self.model.device == "cuda":
+            attributions = attributions.cpu()
+        attributions_df = pd.DataFrame(attributions.detach().numpy().astype(float), columns=features)
         avg_attributions = attributions_df.mean(axis=0)
         avg_abs_attributions = avg_attributions.abs()
         def custom_minmax_scaler(data, feature_range=(0, 100)):
@@ -411,8 +422,7 @@ class MLPBinaryClassifier():
         return sorted_attributions
 
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = torch.load('lending_club_mlp_binary_classifier.pt', map_location=torch.device(device))
+model = torch.load('lendingclub_mlp_binary_classifier.pt')
 
 map_output = {
     0: 'Fully Paid',
@@ -423,17 +433,15 @@ features = ['loan_amnt',
  'funded_amnt',
  'funded_amnt_inv',
  'int_rate',
- 'fico_range_high',
+ 'installment',
  'total_pymnt',
  'total_pymnt_inv',
  'total_rec_prncp',
  'total_rec_int',
  'recoveries',
+ 'collection_recovery_fee',
  'last_pymnt_amnt',
  'last_fico_range_high',
- 'last_fico_range_low',
- 'mths_since_rcnt_il',
- 'mo_sin_old_rev_tl_op',
  'last_credit_pull_d',
  'last_pymnt_d']
 
@@ -470,7 +478,6 @@ def get_user_inputs():
     return input_
 
 import json
-import os
 def get_user_inputs_from_json(file_path=" "):
     if file_path in [" ", ""]:
         file_path = 'data_test.json'
@@ -485,8 +492,9 @@ def get_user_inputs_from_json(file_path=" "):
         return input_
 
 def predict(inputs):
-    prediction = model.predict(inputs)
-    return map_output[prediction[0][0]]
+    prediction = model.forward(inputs)
+    prediction_proba = model.forward_proba(inputs)
+    return map_output[prediction[0][0]], prediction_proba[0][prediction[0][0]]
 
 
 if __name__=='__main__':
@@ -509,7 +517,7 @@ if __name__=='__main__':
                 inputs = np.array(inputs).reshape(1,-1)
                 result = predict(inputs)
                 print("\n=============================")
-                print(f"PREDICTION RESULT: {result}")
+                print(f"PREDICTION RESULT: {result[0]} - Probability: {result[1]}")
                 integrated_gradients = model.compute_integrated_gradients(inputs)
                 print(f"\nFeature relevance: {integrated_gradients}")
                 print("=============================\n")
