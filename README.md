@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="featured_image.gif" alt="" width="80%">
+</p>
+
+---
+
 # Semi-Supervised Learning with Binary MLP Classifier
 
 Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
@@ -24,7 +30,3 @@ If you would like to use a json data, please ensure you provide data in the same
 docker run -it -v /root_path/data_folder:/app/data yanncauchepin/kaggle_lendingclub_mlp_binary_classifier:latest
 ```
 By choosing this second choice of predicting the ***loan_status*** from a data json file, you can get the output by passing *data_folder/data.json* as input into the request. Nevertheless, if you inform *datat_test.json*, or simply press *Enter*, it will run the inner test.
-
----
-
-![](featured_image.jpg)
