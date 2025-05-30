@@ -2,7 +2,7 @@ tqdm==4.66.5
 scipy==1.14.1
 pandas==2.2.3
 numpy==1.26.4
-torch==2.5.0
+torch==2.7.0
 captum==0.7.0
 scikit-learn==1.5.2
 scikit-optimize==0.10.2
