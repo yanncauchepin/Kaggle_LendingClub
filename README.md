@@ -1,9 +1,3 @@
-<p align="center">
-  <img src="featured_image.png" alt="" width="80%">
-</p>
-
----
-
 # Semi-Supervised Learning with Binary MLP Classifier
 
 Here is a repository related to the **dataset** [Lending Club](https://www.kaggle.com/datasets/ethon0426/lending-club-20072020q1/code).
